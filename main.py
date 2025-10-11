@@ -36,7 +36,7 @@ CHAT_ID = os.getenv("CHAT_ID")
 # 🕒 Fuso orario e orario di pubblicazione
 ITALY_TZ = pytz.timezone("Europe/Rome")
 POST_HOUR = 10
-POST_MINUTE = 25
+POST_MINUTE = 45
 
 # 📝 Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
