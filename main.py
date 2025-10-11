@@ -5,11 +5,12 @@ import aiohttp
 import datetime
 import logging
 import pytz
-import asyncio
 import threading
 
+# Importa da telegram.ext
 from telegram.ext import ApplicationBuilder, CommandHandler
-from commands.ultimovideo import handle_ultimovideo
+# Assicurati che "commands.ultimovideo" esista e contenga handle_ultimovideo
+from commands.ultimovideo import handle_ultimovideo 
 
 # 🔧 Flask setup
 app = Flask(__name__)
@@ -19,11 +20,13 @@ def home():
     return "Hello, World!"
 
 def run_flask():
+    # La porta 5000 è comune, usa la variabile d'ambiente PORT per la compatibilità con hosting
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
 
-# 🔐 Carica variabili d'ambiente
-load_dotenv("C:\\Users\\Pc\\Desktop\\TelegramBot\\script_dati.env")
+# 🔐 Carica variabili d'ambiente - 📢 CORREZIONE QUI
+# Assicurati che 'script_dati.env' sia nella stessa cartella
+load_dotenv("script_dati.env")
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
@@ -32,15 +35,16 @@ CHAT_ID = os.getenv("CHAT_ID")
 
 # 🕒 Fuso orario e orario di pubblicazione
 ITALY_TZ = pytz.timezone("Europe/Rome")
-POST_HOUR = 14
-POST_MINUTE = 00
+POST_HOUR = 10
+POST_MINUTE = 25
 
 # 📝 Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-# 📺 Funzione per ottenere l'ultimo video
+# 📺 Funzione per ottenere l'ultimo video (resta invariata)
 async def get_latest_video():
+    # ... (il codice per get_latest_video è corretto)
     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={CHANNEL_ID}&type=video&order=date&key={YOUTUBE_API_KEY}"
     try:
         async with aiohttp.ClientSession() as session:
@@ -63,48 +67,53 @@ async def get_latest_video():
         logger.error(f"Error fetching video: {e}")
         return None, None
 
-# 📤 Invio automatico su Telegram
-async def post_to_telegram():
+# 📤 Funzione JobQueue - sostituisce il loop manuale
+async def post_to_telegram_job(context):
+    """Chiama get_latest_video e invia il messaggio usando l'istanza Bot fornita dal JobQueue."""
+    logger.info("Tentativo di invio automatico del video.")
+    
     title, url = await get_latest_video()
+    
     if title and url:
         message = f"🎥 Ultimo video: {title}\n🔴 Guarda qui: {url}"
     else:
         message = "Nessun video recente trovato."
 
     try:
-        from telegram import Bot
-        bot = Bot(token=TELEGRAM_BOT_TOKEN)
-        await bot.send_message(chat_id=CHAT_ID, text=message)
-        logger.info("Messaggio Telegram inviato.")
+        # 📢 CORREZIONE QUI: Usa context.bot e la variabile globale CHAT_ID
+        await context.bot.send_message(chat_id=CHAT_ID, text=message)
+        logger.info("Messaggio Telegram inviato con JobQueue.")
     except Exception as e:
-        logger.error(f"Errore nell'invio del messaggio su Telegram: {e}")
+        logger.error(f"Errore nell'invio del messaggio su Telegram (JobQueue): {e}")
 
-# ⏰ Loop settimanale
-async def telegram_loop():
-    while True:
-        now_utc = datetime.datetime.now(pytz.utc)
-        now_italy = now_utc.astimezone(ITALY_TZ)
-
-        logger.info(f"Orario italiano attuale: {now_italy.strftime('%A %H:%M:%S')}")
-
-        if (now_italy.weekday() == 5 and
-            now_italy.hour == POST_HOUR and
-            now_italy.minute == POST_MINUTE and
-            now_italy.second == 0):
-            await post_to_telegram()
-            await asyncio.sleep(60)
-        await asyncio.sleep(1)
-
-# 🚀 Avvio bot Telegram con comando /ultimovideo
+# 🚀 Avvio bot Telegram con JobQueue - 📢 CORREZIONE QUI
 def run_telegram():
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    
+    # 1. Aggiungi il gestore di comando
     application.add_handler(CommandHandler("ultimovideo", handle_ultimovideo))
 
-    loop_task = asyncio.create_task(telegram_loop())
+    # 2. Configura il JobQueue per lo scheduling
+    job_queue = application.job_queue
+    
+    # Crea un oggetto time per l'orario di pubblicazione in fuso orario ITALY_TZ
+    post_time = datetime.time(hour=POST_HOUR, minute=POST_MINUTE, tzinfo=ITALY_TZ)
+    
+    # Pianifica l'esecuzione per ogni Sabato (5) all'orario specificato
+    job_queue.run_daily(
+        post_to_telegram_job,
+        time=post_time,
+        days=(5,), # 5 = Sabato (Lunedì è 0)
+        name="daily_video_post"
+    )
+
+    # 3. Avvia il polling (che gestisce anche il JobQueue)
     application.run_polling()
 
 # 🧵 Avvio dei thread
 if __name__ == "__main__":
+    logger.info("Avvio del server Flask e del bot Telegram in thread separati.")
+    
     flask_thread = threading.Thread(target=run_flask)
     telegram_thread = threading.Thread(target=run_telegram)
 
