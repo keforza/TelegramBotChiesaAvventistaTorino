@@ -17,39 +17,73 @@ CHANNEL_ID = os.getenv("CHANNEL_ID")
 logger = logging.getLogger(__name__)
 
 
-async def get_latest_video(predicatore):
-    """Recupera l'ultimo video lungo non-live del predicatore."""
+def parse_duration(duration):
+    """Converte una durata YouTube ISO 8601 in secondi."""
+
+    match = re.fullmatch(
+        r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?",
+        duration,
+    )
+
+    if not match:
+        return None
+
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+
+    return hours * 3600 + minutes * 60 + seconds
+
+
+async def search_culti(query, max_results=10):
+    """Cerca culti sul canale YouTube configurato."""
 
     if not YOUTUBE_API_KEY:
-        logger.error("YOUTUBE_API_KEY non configurata nel file .env")
-        return None, None
+        logger.error(
+            "YOUTUBE_API_KEY non configurata nel file .env"
+        )
+        return []
 
     if not CHANNEL_ID:
-        logger.error("CHANNEL_ID non configurata nel file .env")
-        return None, None
+        logger.error(
+            "CHANNEL_ID non configurata nel file .env"
+        )
+        return []
 
     search_url = (
         "https://www.googleapis.com/youtube/v3/search"
-        f"?part=snippet"
-        f"&channelId={CHANNEL_ID}"
-        f"&type=video"
-        f"&order=date"
-        f"&maxResults=20"
-        f"&key={YOUTUBE_API_KEY}"
     )
+
+    search_params = {
+        "part": "snippet",
+        "channelId": CHANNEL_ID,
+        "type": "video",
+        "q": query,
+        "order": "relevance",
+        "maxResults": max_results,
+        "key": YOUTUBE_API_KEY,
+    }
 
     try:
         async with aiohttp.ClientSession() as session:
 
-            async with session.get(search_url) as response:
+            # Ricerca dei video
+            async with session.get(
+                search_url,
+                params=search_params,
+            ) as response:
+
                 response.raise_for_status()
                 search_data = await response.json()
 
             items = search_data.get("items", [])
 
             if not items:
-                logger.info("Nessun video trovato.")
-                return None, None
+                logger.info(
+                    "Nessun video trovato per: %s",
+                    query,
+                )
+                return []
 
             video_ids = [
                 item["id"]["videoId"]
@@ -58,26 +92,37 @@ async def get_latest_video(predicatore):
             ]
 
             if not video_ids:
-                logger.info("Nessun ID video trovato.")
-                return None, None
+                return []
 
+            # Recuperiamo durata e informazioni aggiuntive
             videos_url = (
                 "https://www.googleapis.com/youtube/v3/videos"
-                f"?part=contentDetails,liveStreamingDetails,snippet"
-                f"&id={','.join(video_ids)}"
-                f"&key={YOUTUBE_API_KEY}"
             )
 
-            async with session.get(videos_url) as response:
+            videos_params = {
+                "part": (
+                    "contentDetails,"
+                    "liveStreamingDetails,"
+                    "snippet"
+                ),
+                "id": ",".join(video_ids),
+                "key": YOUTUBE_API_KEY,
+            }
+
+            async with session.get(
+                videos_url,
+                params=videos_params,
+            ) as response:
+
                 response.raise_for_status()
                 videos_data = await response.json()
 
-        # I video arrivano nello stesso ordine della ricerca?
-        # Per sicurezza li rimettiamo nell'ordine originale.
         videos_by_id = {
             video["id"]: video
             for video in videos_data.get("items", [])
         }
+
+        results = []
 
         for item in items:
 
@@ -87,52 +132,36 @@ async def get_latest_video(predicatore):
             if not video:
                 continue
 
-            video_title = video["snippet"]["title"]
+            title = video["snippet"]["title"]
 
-            # Controlliamo il nome del predicatore nel titolo.
-            if predicatore.lower() not in video_title.lower():
-                continue
-
-            # Escludiamo le live.
+            # Ignora le live
             if "liveStreamingDetails" in video:
                 logger.info(
                     "Ignoro live: %s",
-                    video_title
+                    title,
                 )
                 continue
 
-            duration = video["contentDetails"]["duration"]
-
-            # Durata ISO 8601.
-            match = re.fullmatch(
-                r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?",
-                duration
+            duration = video["contentDetails"].get(
+                "duration"
             )
 
-            if not match:
+            total_seconds = parse_duration(duration)
+
+            if total_seconds is None:
                 logger.warning(
                     "Durata non riconosciuta per %s: %s",
-                    video_title,
-                    duration
+                    title,
+                    duration,
                 )
                 continue
 
-            hours = int(match.group(1) or 0)
-            minutes = int(match.group(2) or 0)
-            seconds = int(match.group(3) or 0)
-
-            total_seconds = (
-                hours * 3600
-                + minutes * 60
-                + seconds
-            )
-
-            # Deve essere superiore a 3 minuti.
+            # Ignora video di 3 minuti o meno
             if total_seconds <= 180:
                 logger.info(
                     "Ignoro video troppo corto: %s (%s secondi)",
-                    video_title,
-                    total_seconds
+                    title,
+                    total_seconds,
                 )
                 continue
 
@@ -140,73 +169,99 @@ async def get_latest_video(predicatore):
                 f"https://www.youtube.com/watch?v={video_id}"
             )
 
-            logger.info(
-                "Ultimo video trovato per %s: %s",
-                predicatore,
-                video_title
+            results.append(
+                {
+                    "title": title,
+                    "url": video_url,
+                    "published_at": video["snippet"].get(
+                        "publishedAt"
+                    ),
+                    "duration": total_seconds,
+                }
             )
 
-            return video_title, video_url
-
         logger.info(
-            "Nessun video lungo non-live trovato per %s.",
-            predicatore
+            "Ricerca '%s': trovati %d culti validi.",
+            query,
+            len(results),
         )
 
-        return None, None
+        return results
 
     except ClientError as e:
         logger.error(
             "Errore nella richiesta all'API YouTube: %s",
-            e
+            e,
         )
-        return None, None
+        return []
 
     except (KeyError, TypeError, ValueError) as e:
         logger.error(
             "Risposta YouTube non valida: %s",
-            e
+            e,
         )
-        return None, None
+        return []
 
     except Exception as e:
         logger.exception(
-            "Errore imprevisto durante il recupero del video: %s",
-            e
+            "Errore imprevisto durante la ricerca YouTube: %s",
+            e,
         )
-        return None, None
+        return []
 
 
-async def handle_ultimovideo(
+async def ricercaculto(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ):
-    """Gestisce il comando /culto."""
+    """Gestisce il comando /ricercaculto."""
 
     if not context.args:
+
         if update.message:
             await update.message.reply_text(
-                "⚠️ Devi specificare il nome del predicatore.\n\n"
+                "⚠️ Devi specificare cosa vuoi cercare.\n\n"
                 "Esempio:\n"
-                "/culto Mario Rossi"
+                "/ricercaculto pazienza"
             )
+
         return
 
-    predicatore = " ".join(context.args).strip()
+    query = " ".join(context.args).strip()
 
-    title, url = await get_latest_video(predicatore)
+    logger.info(
+        "Ricerca culto richiesta: %s",
+        query,
+    )
 
-    if title and url:
-        message = (
-            f"🎥 Ultimo culto di {predicatore}:\n"
-            f"{title}\n\n"
-            f"🔴 Guarda qui: {url}"
+    results = await search_culti(query)
+
+    if not update.message:
+        return
+
+    if not results:
+
+        await update.message.reply_text(
+            f"❌ Non ho trovato culti per: {query}"
         )
-    else:
-        message = (
-            f"❌ Non ho trovato un video recente di "
-            f"{predicatore} che soddisfi i requisiti."
+
+        return
+
+    message_lines = [
+        f"🔎 Risultati per: {query}",
+        "",
+    ]
+
+    for index, result in enumerate(
+        results,
+        start=1,
+    ):
+
+        message_lines.append(
+            f"{index}. {result['title']}\n"
+            f"🎥 {result['url']}\n"
         )
 
-    if update.message:
-        await update.message.reply_text(message)
+    await update.message.reply_text(
+        "\n".join(message_lines)
+    )

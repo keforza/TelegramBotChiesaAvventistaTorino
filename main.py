@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from telegram.ext import ApplicationBuilder, CommandHandler
 
 from commands.start import start
+from commands.ricercaculto import ricercaculto
 
 
 load_dotenv(".env")
@@ -23,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Evita di mostrare nei log le richieste HTTP
-# che possono contenere il token del bot nell'URL.
+# che possono contenere il token del bot.
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
@@ -32,7 +33,7 @@ def heartbeat():
 
     while True:
         time.sleep(30)
-        logger.info("🟢 Bot attivo e in ascolto")
+        logger.info("🟢 Bot attivo e in ascolto...")
 
 
 def main():
@@ -56,9 +57,13 @@ def main():
         CommandHandler("start", start)
     )
 
+    # Comando /ricercaculto
+    application.add_handler(
+        CommandHandler("ricercaculto", ricercaculto)
+    )
+
     logger.info("Bot avviato correttamente.")
 
-    # Avvia il controllo di attività in background.
     threading.Thread(
         target=heartbeat,
         daemon=True,
