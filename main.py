@@ -205,7 +205,8 @@ async def post_init(application):
 
 def heartbeat():
     while True:
-        time.sleep(600)
+        time.sleep(3600)  # 1 ora
+        logger.info("🟢Il bot è attivo e funzionante.")
 
 
 # ==================================================
