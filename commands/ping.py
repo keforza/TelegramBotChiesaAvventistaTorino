@@ -1,9 +1,8 @@
 """
 Comando /ping riservato all'amministratore.
 
-Il comando /ping è effimero.
+Il comando è effimero.
 La risposta è effimera.
-Entrambi sono visibili solamente all'amministratore.
 """
 
 import os
@@ -17,15 +16,6 @@ async def ping(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    """
-    Risponde al comando /ping con:
-
-    🏓 Pong!
-    ⚡ Latenza: XX ms
-
-    Il comando e la risposta sono entrambi ephemeral.
-    """
-
     # ==================================================
     # CONTROLLO AMMINISTRATORE
     # ==================================================
@@ -53,47 +43,7 @@ async def ping(
         return
 
     # ==================================================
-    # RECUPERA L'ID DEL COMANDO EPHEMERAL
-    # ==================================================
-
-    message = update.effective_message
-
-    if message is None:
-        return
-
-    # PTB potrebbe non esporre il campo direttamente.
-    ephemeral_message_id = getattr(
-        message,
-        "ephemeral_message_id",
-        None,
-    )
-
-    # Fallback: controlliamo il dizionario dell'Update.
-    if ephemeral_message_id is None:
-        update_data = update.to_dict()
-
-        message_data = update_data.get(
-            "message",
-            {},
-        )
-
-        ephemeral_message_id = message_data.get(
-            "ephemeral_message_id"
-        )
-
-    # Se Telegram non ci ha fornito l'ID,
-    # NON inviamo una risposta normale.
-    if ephemeral_message_id is None:
-        return
-
-    # ==================================================
-    # MISURA DELLA LATENZA
-    # ==================================================
-    #
-    # Usiamo una chiamata reale al Bot API.
-    #
-    # getMe() non modifica nulla e ci permette di
-    # misurare il tempo di andata/ritorno Telegram.
+    # MISURA LATENZA TELEGRAM
     # ==================================================
 
     start_time = time.perf_counter()
@@ -105,14 +55,7 @@ async def ping(
     ) * 1000
 
     # ==================================================
-    # RISPOSTA EPHEMERAL
-    # ==================================================
-    #
-    # Rispondendo all'ephemeral_message_id,
-    # Telegram rende automaticamente ephemeral
-    # anche questa risposta.
-    #
-    # Questa è L'UNICA risposta inviata dal bot.
+    # RISPOSTA EFFIMERA
     # ==================================================
 
     await context.bot.do_api_request(
@@ -123,8 +66,8 @@ async def ping(
                 "🏓 Pong!\n"
                 f"⚡ Latenza: {latency:.0f} ms"
             ),
-            "reply_parameters": {
-                "ephemeral_message_id": ephemeral_message_id,
+            "ephemeral_message_parameters": {
+                "receiver_user_id": user.id,
             },
         },
     )
