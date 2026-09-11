@@ -7,7 +7,7 @@ Il comando e la risposta sono completamente effimeri.
 import os
 import time
 
-from telegram import Update
+from telegram import Message, Update
 from telegram.ext import ContextTypes
 
 
@@ -19,8 +19,12 @@ async def ping(
     Misura la latenza tra il bot e Telegram.
 
     Il comando è utilizzabile solamente dall'amministratore.
-    Sia il comando ricevuto sia la risposta sono effimeri.
+    La risposta è effimera.
     """
+
+    # ==================================================
+    # CONTROLLO AMMINISTRATORE
+    # ==================================================
 
     admin_id = os.getenv(
         "ADMIN_TELEGRAM_ID"
@@ -43,12 +47,12 @@ async def ping(
         return
 
     # ==================================================
-    # INVIO RISPOSTA EPHEMERAL
+    # INVIO MESSAGGIO EPHEMERAL
     # ==================================================
 
     start_time = time.perf_counter()
 
-    result = await context.bot.do_api_request(
+    message = await context.bot.do_api_request(
         "sendMessage",
         {
             "chat_id": chat.id,
@@ -57,26 +61,28 @@ async def ping(
                 "receiver_user_id": user.id,
             },
         },
+        return_type=Message,
     )
+
+    # ==================================================
+    # CALCOLO LATENZA
+    # ==================================================
 
     latency = (
         time.perf_counter() - start_time
     ) * 1000
 
     # ==================================================
-    # RECUPERA ID MESSAGGIO EPHEMERAL
+    # CONTROLLO RISPOSTA
     # ==================================================
 
-    if not result:
+    if not message:
         return
 
-    message_data = result.get("result")
-
-    if not message_data:
-        return
-
-    ephemeral_message_id = message_data.get(
-        "ephemeral_message_id"
+    ephemeral_message_id = getattr(
+        message,
+        "ephemeral_message_id",
+        None,
     )
 
     if not ephemeral_message_id:
