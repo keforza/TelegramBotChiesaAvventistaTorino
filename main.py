@@ -2,7 +2,7 @@
 Modulo principale per l'esecuzione del Bot Telegram.
 
 Gestione avvio bot, comandi, callback,
-comandi ephemeral e heartbeat.
+comandi ephemeral, heartbeat e server HTTP Render.
 """
 
 import logging
@@ -11,6 +11,7 @@ import threading
 import time
 
 from dotenv import load_dotenv
+from flask import Flask
 
 
 # ==================================================
@@ -23,11 +24,6 @@ load_dotenv(".env")
 # ==================================================
 # IMPORT TELEGRAM
 # ==================================================
-
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
 
 from telegram.ext import (
     ApplicationBuilder,
@@ -128,6 +124,48 @@ logging.getLogger(
 logging.getLogger(
     "apscheduler"
 ).setLevel(logging.WARNING)
+
+
+# ==================================================
+# SERVER HTTP PER RENDER
+# ==================================================
+
+flask_app = Flask(__name__)
+
+
+@flask_app.route("/")
+def health_check():
+    """
+    Endpoint utilizzato da Render per verificare
+    che il servizio HTTP sia attivo.
+    """
+
+    return "Telegram Bot is running", 200
+
+
+def start_http_server():
+    """
+    Avvia il piccolo server HTTP richiesto da Render.
+    """
+
+    port = int(
+        os.getenv(
+            "PORT",
+            10000,
+        )
+    )
+
+    logger.info(
+        "🌐 Server HTTP avviato sulla porta %d.",
+        port,
+    )
+
+    flask_app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=False,
+        use_reloader=False,
+    )
 
 
 # ==================================================
@@ -492,6 +530,15 @@ def main():
     logger.info(
         "🚀 Avvio del bot Telegram..."
     )
+
+    # ==================================================
+    # SERVER HTTP RENDER
+    # ==================================================
+
+    threading.Thread(
+        target=start_http_server,
+        daemon=True,
+    ).start()
 
     application = (
         ApplicationBuilder()
