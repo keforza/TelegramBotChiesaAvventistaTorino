@@ -144,7 +144,7 @@ def health_check():
     che il servizio HTTP sia attivo.
     """
 
-    return "Telegram Bot is running", 200
+    return "Il Bot di Telegram è in esecuzione", 200
 
 
 def start_http_server():
