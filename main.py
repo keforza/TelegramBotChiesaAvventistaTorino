@@ -38,8 +38,6 @@ from telegram.ext import (
 
 from commands.start import start
 
-from commands.ping import ping
-
 from commands.ricercaculto import (
     ricercaculto,
     culto_navigation,
@@ -79,10 +77,6 @@ TELEGRAM_BOT_TOKEN = os.getenv(
 
 TELEGRAM_CHAT_ID = os.getenv(
     "TELEGRAM_CHAT_ID"
-)
-
-ADMIN_TELEGRAM_ID = os.getenv(
-    "ADMIN_TELEGRAM_ID"
 )
 
 
@@ -182,16 +176,12 @@ async def configure_ephemeral_commands(
     application,
 ):
     """
-    Configura i comandi ephemeral.
+    Configura /culto, /diretta come comandi
+    effimeri esclusivamente nel gruppo configurato
+    in TELEGRAM_CHAT_ID.
 
-    Utenti normali:
-        /culto
-        /diretta
-
-    Amministratore:
-        /culto
-        /diretta
-        /ping
+    Dopo la configurazione viene eseguita anche una
+    verifica tramite getMyCommands.
     """
 
     if not TELEGRAM_CHAT_ID:
@@ -199,15 +189,6 @@ async def configure_ephemeral_commands(
         logger.warning(
             "⚠️ TELEGRAM_CHAT_ID non configurato: "
             "comandi ephemeral non configurati."
-        )
-
-        return
-
-    if not ADMIN_TELEGRAM_ID:
-
-        logger.warning(
-            "⚠️ ADMIN_TELEGRAM_ID non configurato: "
-            "comandi admin non configurati."
         )
 
         return
@@ -224,25 +205,11 @@ async def configure_ephemeral_commands(
 
             chat_id = TELEGRAM_CHAT_ID
 
-        try:
-
-            admin_id = int(
-                ADMIN_TELEGRAM_ID
-            )
-
-        except ValueError:
-
-            logger.error(
-                "❌ ADMIN_TELEGRAM_ID non è un numero valido."
-            )
-
-            return
-
         # ==================================================
-        # COMANDI VISIBILI A TUTTI
+        # LISTA COMANDI
         # ==================================================
 
-        user_commands = [
+        commands = [
             {
                 "command": "culto",
                 "description": "Cerca un culto",
@@ -255,98 +222,49 @@ async def configure_ephemeral_commands(
             },
         ]
 
-        await application.bot.do_api_request(
-            "setMyCommands",
-            {
-                "commands": user_commands,
-                "scope": {
-                    "type": "chat",
-                    "chat_id": chat_id,
-                },
-                "language_code": "",
-            },
-        )
-
         # ==================================================
-        # COMANDI VISIBILI SOLO ALL'ADMIN
+        # SCOPE GRUPPO
         # ==================================================
 
-        admin_commands = [
-            {
-                "command": "culto",
-                "description": "Cerca un culto",
-                "is_ephemeral": True,
-            },
-            {
-                "command": "diretta",
-                "description": "Cerca una diretta",
-                "is_ephemeral": True,
-            },
-            {
-                "command": "ping",
-                "description": "Controlla la latenza del bot",
-                "is_ephemeral": True,
-            },
-        ]
+        scope = {
+            "type": "chat",
+            "chat_id": chat_id,
+        }
+
+        # ==================================================
+        # REGISTRA COMANDI
+        # ==================================================
 
         await application.bot.do_api_request(
             "setMyCommands",
             {
-                "commands": admin_commands,
-                "scope": {
-                    "type": "chat_member",
-                    "chat_id": chat_id,
-                    "user_id": admin_id,
-                },
+                "commands": commands,
+                "scope": scope,
                 "language_code": "",
             },
         )
 
         logger.info(
-            "🔒 Comandi ephemeral configurati: "
-            "/culto e /diretta per tutti, "
-            "/ping solo per l'amministratore."
+            "🔒 Comandi ephemeral configurati "
+            "per il gruppo %s.",
+            TELEGRAM_CHAT_ID,
         )
 
         # ==================================================
-        # VERIFICA LISTA GENERALE
+        # VERIFICA COMANDI REGISTRATI
         # ==================================================
 
-        user_result = await application.bot.do_api_request(
+        result = await application.bot.do_api_request(
             "getMyCommands",
             {
-                "scope": {
-                    "type": "chat",
-                    "chat_id": chat_id,
-                },
+                "scope": scope,
                 "language_code": "",
             },
         )
 
         logger.info(
-            "🔎 Comandi utenti: %s",
-            user_result,
-        )
-
-        # ==================================================
-        # VERIFICA LISTA ADMIN
-        # ==================================================
-
-        admin_result = await application.bot.do_api_request(
-            "getMyCommands",
-            {
-                "scope": {
-                    "type": "chat_member",
-                    "chat_id": chat_id,
-                    "user_id": admin_id,
-                },
-                "language_code": "",
-            },
-        )
-
-        logger.info(
-            "🔎 Comandi admin: %s",
-            admin_result,
+            "🔎 Verifica comandi Telegram: %s",
+            result,
         )
 
     except Exception:
@@ -494,28 +412,6 @@ async def logged_start(
         update,
         context,
     )
-
-
-async def logged_ping(
-    update,
-    context,
-):
-    """
-    Wrapper per registrare l'utilizzo di /ping.
-    """
-
-    user = update.effective_user
-
-    logger.info(
-        "📥 /ping richiesto da %s",
-        format_user(user),
-    )
-
-    await ping(
-        update,
-        context,
-    )
-
 
 async def logged_ricercaculto(
     update,
@@ -679,13 +575,6 @@ def main():
         CommandHandler(
             "start",
             logged_start,
-        )
-    )
-
-    application.add_handler(
-        CommandHandler(
-            "ping",
-            logged_ping,
         )
     )
 
