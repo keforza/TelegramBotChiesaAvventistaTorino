@@ -9,13 +9,18 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 
-async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ping(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
     """
-    Misura la latenza tra il bot e le API di Telegram.
+    Misura la latenza tra il bot e Telegram.
     Il comando è utilizzabile solamente dall'amministratore.
     """
 
-    admin_id = os.getenv("ADMIN_TELEGRAM_ID")
+    admin_id = os.getenv(
+        "ADMIN_TELEGRAM_ID"
+    )
 
     if not admin_id:
         await update.message.reply_text(

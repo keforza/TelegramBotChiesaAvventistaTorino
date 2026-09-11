@@ -1,4 +1,3 @@
-
 """
 Modulo principale per l'esecuzione del Bot Telegram.
 
@@ -179,7 +178,7 @@ async def configure_ephemeral_commands(
     application,
 ):
     """
-    Configura /culto e /diretta come comandi
+    Configura /culto, /diretta e /ping come comandi
     effimeri esclusivamente nel gruppo configurato
     in TELEGRAM_CHAT_ID.
     """
@@ -214,6 +213,11 @@ async def configure_ephemeral_commands(
             {
                 "command": "diretta",
                 "description": "Cerca una diretta",
+                "is_ephemeral": True,
+            },
+            {
+                "command": "ping",
+                "description": "Controlla la latenza del bot",
                 "is_ephemeral": True,
             },
         ]
@@ -258,25 +262,13 @@ async def post_init(
     gli scheduler.
     """
 
-    # ----------------------------------------------
-    # COMANDI EPHEMERAL
-    # ----------------------------------------------
-
     await configure_ephemeral_commands(
         application
     )
 
-    # ----------------------------------------------
-    # PRIMO AGGIORNAMENTO CACHE
-    # ----------------------------------------------
-
     await youtube_cache_update(
         None
     )
-
-    # ----------------------------------------------
-    # AGGIORNAMENTO CACHE AUTOMATICO
-    # ----------------------------------------------
 
     application.job_queue.run_repeating(
         youtube_cache_update,
@@ -293,10 +285,6 @@ async def post_init(
         "⏳ Prossimo aggiornamento YouTube "
         "tra 1 ora."
     )
-
-    # ----------------------------------------------
-    # SCHEDULER ULTIMA DIRETTA
-    # ----------------------------------------------
 
     setup_scheduler(
         application
