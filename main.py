@@ -79,6 +79,10 @@ TELEGRAM_CHAT_ID = os.getenv(
     "TELEGRAM_CHAT_ID"
 )
 
+ADMIN_TELEGRAM_ID = os.getenv(
+    "ADMIN_TELEGRAM_ID"
+)
+
 
 # ==================================================
 # CACHE YOUTUBE
@@ -176,12 +180,13 @@ async def configure_ephemeral_commands(
     application,
 ):
     """
-    Configura /culto, /diretta come comandi
+    Configura /culto e /diretta come comandi
     effimeri esclusivamente nel gruppo configurato
     in TELEGRAM_CHAT_ID.
 
-    Dopo la configurazione viene eseguita anche una
-    verifica tramite getMyCommands.
+    Elimina inoltre il vecchio scope chat_member
+    dell'amministratore, che poteva ancora contenere
+    il comando /ping.
     """
 
     if not TELEGRAM_CHAT_ID:
@@ -195,6 +200,10 @@ async def configure_ephemeral_commands(
 
     try:
 
+        # ==================================================
+        # CONVERSIONE CHAT ID
+        # ==================================================
+
         try:
 
             chat_id = int(
@@ -204,6 +213,48 @@ async def configure_ephemeral_commands(
         except ValueError:
 
             chat_id = TELEGRAM_CHAT_ID
+
+        # ==================================================
+        # ELIMINAZIONE VECCHIO SCOPE ADMIN
+        # ==================================================
+
+        if ADMIN_TELEGRAM_ID:
+
+            try:
+
+                try:
+
+                    admin_id = int(
+                        ADMIN_TELEGRAM_ID
+                    )
+
+                except ValueError:
+
+                    admin_id = ADMIN_TELEGRAM_ID
+
+                await application.bot.do_api_request(
+                    "deleteMyCommands",
+                    {
+                        "scope": {
+                            "type": "chat_member",
+                            "chat_id": chat_id,
+                            "user_id": admin_id,
+                        },
+                        "language_code": "",
+                    },
+                )
+
+                logger.info(
+                    "🧹 Vecchio scope chat_member "
+                    "dell'amministratore eliminato."
+                )
+
+            except Exception:
+
+                logger.exception(
+                    "⚠️ Impossibile eliminare "
+                    "il vecchio scope chat_member."
+                )
 
         # ==================================================
         # LISTA COMANDI
@@ -412,6 +463,7 @@ async def logged_start(
         update,
         context,
     )
+
 
 async def logged_ricercaculto(
     update,
