@@ -300,7 +300,7 @@ def heartbeat():
     """
     while True:
         time.sleep(600)
-        logger.info("🟢 BOT ATTIVO E FUNZIONANTE")
+        logger.info("🟢 Bot attivo e funzionante")
 
 
 # ==================================================
