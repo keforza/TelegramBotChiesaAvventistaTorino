@@ -2,6 +2,7 @@
 Comando /ping riservato all'amministratore.
 
 Il comando e la risposta sono completamente effimeri.
+Gli altri utenti del gruppo non possono vedere la risposta.
 """
 
 import os
@@ -19,7 +20,8 @@ async def ping(
     Misura la latenza tra il bot e Telegram.
 
     Il comando è utilizzabile solamente dall'amministratore.
-    La risposta è effimera.
+    La risposta è effimera e visibile esclusivamente
+    all'utente che ha eseguito il comando.
     """
 
     # ==================================================
@@ -46,32 +48,13 @@ async def ping(
     if not chat:
         return
 
-    # ==================================================
-    # INVIO MESSAGGIO EPHEMERAL
-    # ==================================================
+    message = update.effective_message
 
-    start_time = time.perf_counter()
-
-    message = await context.bot.send_message(
-        chat_id=chat.id,
-        text="🏓 Pong...",
-        api_kwargs={
-            "ephemeral_message_parameters": {
-                "receiver_user_id": user.id,
-            }
-        },
-    )
+    if not message:
+        return
 
     # ==================================================
-    # CALCOLO LATENZA
-    # ==================================================
-
-    latency = (
-        time.perf_counter() - start_time
-    ) * 1000
-
-    # ==================================================
-    # CONTROLLO ID MESSAGGIO EPHEMERAL
+    # RECUPERA ID DEL MESSAGGIO EPHEMERAL
     # ==================================================
 
     ephemeral_message_id = getattr(
@@ -84,18 +67,26 @@ async def ping(
         return
 
     # ==================================================
-    # AGGIORNA MESSAGGIO EPHEMERAL
+    # MISURA LATENZA
     # ==================================================
 
-    await context.bot.do_api_request(
-        "editEphemeralMessageText",
-        {
-            "chat_id": chat.id,
-            "receiver_user_id": user.id,
+    start_time = time.perf_counter()
+
+    # ==================================================
+    # INVIA UN'UNICA RISPOSTA EPHEMERAL
+    # ==================================================
+
+    latency = (
+        time.perf_counter() - start_time
+    ) * 1000
+
+    await context.bot.send_message(
+        chat_id=chat.id,
+        text=(
+            f"🏓 Pong!\n"
+            f"⚡ Latenza: {latency:.0f} ms"
+        ),
+        reply_parameters={
             "ephemeral_message_id": ephemeral_message_id,
-            "text": (
-                f"🏓 Pong!\n"
-                f"⚡ Latenza: {latency:.0f} ms"
-            ),
         },
     )
