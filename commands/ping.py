@@ -7,7 +7,7 @@ Il comando e la risposta sono completamente effimeri.
 import os
 import time
 
-from telegram import Message, Update
+from telegram import Update
 from telegram.ext import ContextTypes
 
 
@@ -52,16 +52,14 @@ async def ping(
 
     start_time = time.perf_counter()
 
-    message = await context.bot.do_api_request(
-        "sendMessage",
-        {
-            "chat_id": chat.id,
-            "text": "🏓 Pong...",
+    message = await context.bot.send_message(
+        chat_id=chat.id,
+        text="🏓 Pong...",
+        api_kwargs={
             "ephemeral_message_parameters": {
                 "receiver_user_id": user.id,
-            },
+            }
         },
-        return_type=Message,
     )
 
     # ==================================================
@@ -73,11 +71,8 @@ async def ping(
     ) * 1000
 
     # ==================================================
-    # CONTROLLO RISPOSTA
+    # CONTROLLO ID MESSAGGIO EPHEMERAL
     # ==================================================
-
-    if not message:
-        return
 
     ephemeral_message_id = getattr(
         message,
