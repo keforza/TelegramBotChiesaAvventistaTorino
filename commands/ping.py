@@ -28,29 +28,31 @@ async def ping(
     # CONTROLLO AMMINISTRATORE
     # ==================================================
 
-    admin_id = os.getenv(
-        "ADMIN_TELEGRAM_ID"
-    )
+    admin_id = os.getenv("ADMIN_TELEGRAM_ID")
 
     if not admin_id:
         return
 
     user = update.effective_user
 
-    if not user:
+    if user is None:
         return
 
     if str(user.id) != str(admin_id):
         return
 
+    # ==================================================
+    # CONTROLLO CHAT
+    # ==================================================
+
     chat = update.effective_chat
 
-    if not chat:
+    if chat is None:
         return
 
     message = update.effective_message
 
-    if not message:
+    if message is None:
         return
 
     # ==================================================
@@ -63,7 +65,23 @@ async def ping(
         None,
     )
 
-    if not ephemeral_message_id:
+    # Fallback nel caso PTB non esponga direttamente
+    # il campo sulla classe Message.
+    if ephemeral_message_id is None:
+        update_data = update.to_dict()
+
+        message_data = update_data.get(
+            "message",
+            {},
+        )
+
+        ephemeral_message_id = message_data.get(
+            "ephemeral_message_id"
+        )
+
+    # Se il comando non è effettivamente ephemeral,
+    # non inviamo nessuna risposta normale.
+    if ephemeral_message_id is None:
         return
 
     # ==================================================
@@ -73,20 +91,37 @@ async def ping(
     start_time = time.perf_counter()
 
     # ==================================================
-    # INVIA UN'UNICA RISPOSTA EPHEMERAL
+    # RISPOSTA EPHEMERAL
+    # ==================================================
+
+    await context.bot.send_message(
+        chat_id=chat.id,
+        text="🏓 Pong!",
+        reply_parameters={
+            "ephemeral_message_id": ephemeral_message_id,
+        },
+    )
+
+    # ==================================================
+    # CALCOLO LATENZA
     # ==================================================
 
     latency = (
         time.perf_counter() - start_time
     ) * 1000
 
-    await context.bot.send_message(
-        chat_id=chat.id,
-        text=(
-            f"🏓 Pong!\n"
-            f"⚡ Latenza: {latency:.0f} ms"
-        ),
-        reply_parameters={
-            "ephemeral_message_id": ephemeral_message_id,
+    # ==================================================
+    # AGGIORNAMENTO DELLA RISPOSTA
+    # ==================================================
+
+    await context.bot.do_api_request(
+        "editEphemeralMessageText",
+        {
+            "chat_id": chat.id,
+            "message_id": ephemeral_message_id,
+            "text": (
+                "🏓 Pong!\n"
+                f"⚡ Latenza: {latency:.0f} ms"
+            ),
         },
     )
