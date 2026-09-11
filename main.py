@@ -1,3 +1,4 @@
+
 """
 Modulo principale per l'esecuzione del Bot Telegram.
 
@@ -37,6 +38,8 @@ from telegram.ext import (
 # ==================================================
 
 from commands.start import start
+
+from commands.ping import ping
 
 from commands.ricercaculto import (
     ricercaculto,
@@ -397,6 +400,27 @@ async def logged_start(
     )
 
 
+async def logged_ping(
+    update,
+    context,
+):
+    """
+    Wrapper per registrare l'utilizzo di /ping.
+    """
+
+    user = update.effective_user
+
+    logger.info(
+        "📥 /ping richiesto da %s",
+        format_user(user),
+    )
+
+    await ping(
+        update,
+        context,
+    )
+
+
 async def logged_ricercaculto(
     update,
     context,
@@ -559,6 +583,13 @@ def main():
         CommandHandler(
             "start",
             logged_start,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "ping",
+            logged_ping,
         )
     )
 
