@@ -81,6 +81,10 @@ TELEGRAM_CHAT_ID = os.getenv(
     "TELEGRAM_CHAT_ID"
 )
 
+ADMIN_TELEGRAM_ID = os.getenv(
+    "ADMIN_TELEGRAM_ID"
+)
+
 
 # ==================================================
 # CACHE YOUTUBE
@@ -178,12 +182,16 @@ async def configure_ephemeral_commands(
     application,
 ):
     """
-    Configura /culto, /diretta e /ping come comandi
-    effimeri esclusivamente nel gruppo configurato
-    in TELEGRAM_CHAT_ID.
+    Configura i comandi ephemeral.
 
-    Dopo la configurazione viene eseguita anche una
-    verifica tramite getMyCommands.
+    Utenti normali:
+        /culto
+        /diretta
+
+    Amministratore:
+        /culto
+        /diretta
+        /ping
     """
 
     if not TELEGRAM_CHAT_ID:
@@ -191,6 +199,15 @@ async def configure_ephemeral_commands(
         logger.warning(
             "⚠️ TELEGRAM_CHAT_ID non configurato: "
             "comandi ephemeral non configurati."
+        )
+
+        return
+
+    if not ADMIN_TELEGRAM_ID:
+
+        logger.warning(
+            "⚠️ ADMIN_TELEGRAM_ID non configurato: "
+            "comandi admin non configurati."
         )
 
         return
@@ -207,11 +224,54 @@ async def configure_ephemeral_commands(
 
             chat_id = TELEGRAM_CHAT_ID
 
+        try:
+
+            admin_id = int(
+                ADMIN_TELEGRAM_ID
+            )
+
+        except ValueError:
+
+            logger.error(
+                "❌ ADMIN_TELEGRAM_ID non è un numero valido."
+            )
+
+            return
+
         # ==================================================
-        # LISTA COMANDI
+        # COMANDI VISIBILI A TUTTI
         # ==================================================
 
-        commands = [
+        user_commands = [
+            {
+                "command": "culto",
+                "description": "Cerca un culto",
+                "is_ephemeral": True,
+            },
+            {
+                "command": "diretta",
+                "description": "Cerca una diretta",
+                "is_ephemeral": True,
+            },
+        ]
+
+        await application.bot.do_api_request(
+            "setMyCommands",
+            {
+                "commands": user_commands,
+                "scope": {
+                    "type": "chat",
+                    "chat_id": chat_id,
+                },
+                "language_code": "",
+            },
+        )
+
+        # ==================================================
+        # COMANDI VISIBILI SOLO ALL'ADMIN
+        # ==================================================
+
+        admin_commands = [
             {
                 "command": "culto",
                 "description": "Cerca un culto",
@@ -229,49 +289,64 @@ async def configure_ephemeral_commands(
             },
         ]
 
-        # ==================================================
-        # SCOPE GRUPPO
-        # ==================================================
-
-        scope = {
-            "type": "chat",
-            "chat_id": chat_id,
-        }
-
-        # ==================================================
-        # REGISTRA COMANDI
-        # ==================================================
-
         await application.bot.do_api_request(
             "setMyCommands",
             {
-                "commands": commands,
-                "scope": scope,
+                "commands": admin_commands,
+                "scope": {
+                    "type": "chat_member",
+                    "chat_id": chat_id,
+                    "user_id": admin_id,
+                },
                 "language_code": "",
             },
         )
 
         logger.info(
-            "🔒 Comandi ephemeral configurati "
-            "per il gruppo %s.",
-            TELEGRAM_CHAT_ID,
+            "🔒 Comandi ephemeral configurati: "
+            "/culto e /diretta per tutti, "
+            "/ping solo per l'amministratore."
         )
 
         # ==================================================
-        # VERIFICA COMANDI REGISTRATI
+        # VERIFICA LISTA GENERALE
         # ==================================================
 
-        result = await application.bot.do_api_request(
+        user_result = await application.bot.do_api_request(
             "getMyCommands",
             {
-                "scope": scope,
+                "scope": {
+                    "type": "chat",
+                    "chat_id": chat_id,
+                },
                 "language_code": "",
             },
         )
 
         logger.info(
-            "🔎 Verifica comandi Telegram: %s",
-            result,
+            "🔎 Comandi utenti: %s",
+            user_result,
+        )
+
+        # ==================================================
+        # VERIFICA LISTA ADMIN
+        # ==================================================
+
+        admin_result = await application.bot.do_api_request(
+            "getMyCommands",
+            {
+                "scope": {
+                    "type": "chat_member",
+                    "chat_id": chat_id,
+                    "user_id": admin_id,
+                },
+                "language_code": "",
+            },
+        )
+
+        logger.info(
+            "🔎 Comandi admin: %s",
+            admin_result,
         )
 
     except Exception:
