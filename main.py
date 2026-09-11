@@ -181,6 +181,9 @@ async def configure_ephemeral_commands(
     Configura /culto, /diretta e /ping come comandi
     effimeri esclusivamente nel gruppo configurato
     in TELEGRAM_CHAT_ID.
+
+    Dopo la configurazione viene eseguita anche una
+    verifica tramite getMyCommands.
     """
 
     if not TELEGRAM_CHAT_ID:
@@ -204,6 +207,10 @@ async def configure_ephemeral_commands(
 
             chat_id = TELEGRAM_CHAT_ID
 
+        # ==================================================
+        # LISTA COMANDI
+        # ==================================================
+
         commands = [
             {
                 "command": "culto",
@@ -222,16 +229,25 @@ async def configure_ephemeral_commands(
             },
         ]
 
+        # ==================================================
+        # SCOPE GRUPPO
+        # ==================================================
+
         scope = {
             "type": "chat",
             "chat_id": chat_id,
         }
+
+        # ==================================================
+        # REGISTRA COMANDI
+        # ==================================================
 
         await application.bot.do_api_request(
             "setMyCommands",
             {
                 "commands": commands,
                 "scope": scope,
+                "language_code": "",
             },
         )
 
@@ -239,6 +255,23 @@ async def configure_ephemeral_commands(
             "🔒 Comandi ephemeral configurati "
             "per il gruppo %s.",
             TELEGRAM_CHAT_ID,
+        )
+
+        # ==================================================
+        # VERIFICA COMANDI REGISTRATI
+        # ==================================================
+
+        result = await application.bot.do_api_request(
+            "getMyCommands",
+            {
+                "scope": scope,
+                "language_code": "",
+            },
+        )
+
+        logger.info(
+            "🔎 Verifica comandi Telegram: %s",
+            result,
         )
 
     except Exception:
