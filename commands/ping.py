@@ -1,8 +1,9 @@
 """
 Comando /ping riservato all'amministratore.
 
-Il comando e la risposta sono completamente effimeri.
-Gli altri utenti del gruppo non possono vedere la risposta.
+Il comando /ping è effimero.
+La risposta è effimera.
+Entrambi sono visibili solamente all'amministratore.
 """
 
 import os
@@ -17,11 +18,12 @@ async def ping(
     context: ContextTypes.DEFAULT_TYPE,
 ):
     """
-    Misura la latenza tra il bot e Telegram.
+    Risponde al comando /ping con:
 
-    Il comando è utilizzabile solamente dall'amministratore.
-    La risposta è effimera e visibile esclusivamente
-    all'utente che ha eseguito il comando.
+    🏓 Pong!
+    ⚡ Latenza: XX ms
+
+    Il comando e la risposta sono entrambi ephemeral.
     """
 
     # ==================================================
@@ -50,23 +52,23 @@ async def ping(
     if chat is None:
         return
 
+    # ==================================================
+    # RECUPERA L'ID DEL COMANDO EPHEMERAL
+    # ==================================================
+
     message = update.effective_message
 
     if message is None:
         return
 
-    # ==================================================
-    # RECUPERA ID DEL MESSAGGIO EPHEMERAL
-    # ==================================================
-
+    # PTB potrebbe non esporre il campo direttamente.
     ephemeral_message_id = getattr(
         message,
         "ephemeral_message_id",
         None,
     )
 
-    # Fallback nel caso PTB non esponga direttamente
-    # il campo sulla classe Message.
+    # Fallback: controlliamo il dizionario dell'Update.
     if ephemeral_message_id is None:
         update_data = update.to_dict()
 
@@ -79,49 +81,50 @@ async def ping(
             "ephemeral_message_id"
         )
 
-    # Se il comando non è effettivamente ephemeral,
-    # non inviamo nessuna risposta normale.
+    # Se Telegram non ci ha fornito l'ID,
+    # NON inviamo una risposta normale.
     if ephemeral_message_id is None:
         return
 
     # ==================================================
-    # MISURA LATENZA
+    # MISURA DELLA LATENZA
+    # ==================================================
+    #
+    # Usiamo una chiamata reale al Bot API.
+    #
+    # getMe() non modifica nulla e ci permette di
+    # misurare il tempo di andata/ritorno Telegram.
     # ==================================================
 
     start_time = time.perf_counter()
 
-    # ==================================================
-    # RISPOSTA EPHEMERAL
-    # ==================================================
-
-    await context.bot.send_message(
-        chat_id=chat.id,
-        text="🏓 Pong!",
-        reply_parameters={
-            "ephemeral_message_id": ephemeral_message_id,
-        },
-    )
-
-    # ==================================================
-    # CALCOLO LATENZA
-    # ==================================================
+    await context.bot.get_me()
 
     latency = (
         time.perf_counter() - start_time
     ) * 1000
 
     # ==================================================
-    # AGGIORNAMENTO DELLA RISPOSTA
+    # RISPOSTA EPHEMERAL
+    # ==================================================
+    #
+    # Rispondendo all'ephemeral_message_id,
+    # Telegram rende automaticamente ephemeral
+    # anche questa risposta.
+    #
+    # Questa è L'UNICA risposta inviata dal bot.
     # ==================================================
 
     await context.bot.do_api_request(
-        "editEphemeralMessageText",
+        "sendMessage",
         {
             "chat_id": chat.id,
-            "message_id": ephemeral_message_id,
             "text": (
                 "🏓 Pong!\n"
                 f"⚡ Latenza: {latency:.0f} ms"
             ),
+            "reply_parameters": {
+                "ephemeral_message_id": ephemeral_message_id,
+            },
         },
     )
