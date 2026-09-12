@@ -88,7 +88,7 @@ async def send_latest_diretta(
             diretta
             for diretta in dirette
             if diretta.get(
-                "actual_end_time"
+                "actual_start_time"
             )
         ]
 
