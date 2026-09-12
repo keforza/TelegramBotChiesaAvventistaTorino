@@ -247,11 +247,11 @@ def setup_scheduler(
     application.job_queue.run_daily(
         send_latest_diretta,
         time=datetime.time(
-            hour=18,
-            minute=1,
+            hour=12,
+            minute=0,
             tzinfo=ROME_TIMEZONE,
         ),
-        days=(4,),
+        days=(6,),
         name="latest_diretta_thursday",
     )
 
