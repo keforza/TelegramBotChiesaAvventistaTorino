@@ -88,7 +88,7 @@ async def send_latest_diretta(
             diretta
             for diretta in dirette
             if diretta.get(
-                "actual_start_time"
+                "actual_end_time"
             )
         ]
 
@@ -248,7 +248,7 @@ def setup_scheduler(
         send_latest_diretta,
         time=datetime.time(
             hour=12,
-            minute=10,
+            minute=15,
             tzinfo=ROME_TIMEZONE,
         ),
         days=(6,),
