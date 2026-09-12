@@ -20,6 +20,7 @@ from telegram.ext import (
 )
 
 from commands.start import start
+from commands.menu import menu
 from commands.ricercaculto import ricercaculto, culto_navigation
 from commands.ricercadiretta import ricercadiretta, diretta_navigation
 from youtube_cache import youtube_cache_update
@@ -241,6 +242,10 @@ def main():
 
     application.add_handler(
         CommandHandler("start", start)
+    )
+
+    application.add_handler(
+    CommandHandler("menu", menu)
     )
 
     application.add_handler(
