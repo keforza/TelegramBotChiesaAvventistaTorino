@@ -248,7 +248,7 @@ def setup_scheduler(
         send_latest_diretta,
         time=datetime.time(
             hour=12,
-            minute=0,
+            minute=10,
             tzinfo=ROME_TIMEZONE,
         ),
         days=(6,),
