@@ -1,8 +1,11 @@
 """
-Comando di test per il menu Telegram.
+Comando di test per la tastiera rapida.
 """
 
-from telegram import Update
+from telegram import (
+    ReplyKeyboardMarkup,
+    Update,
+)
 from telegram.ext import ContextTypes
 
 
@@ -11,9 +14,20 @@ async def menu(
     context: ContextTypes.DEFAULT_TYPE,
 ):
     """
-    Comando di test /menu.
+    Mostra la tastiera rapida di test.
     """
 
+    keyboard = [
+        ["📖 Test Culto", "📺 Test Diretta"],
+    ]
+
+    reply_markup = ReplyKeyboardMarkup(
+        keyboard,
+        resize_keyboard=True,
+        is_persistent=True,
+    )
+
     await update.effective_message.reply_text(
-        "🧪 Menu di test"
+        "🧪 Tastiera di test:",
+        reply_markup=reply_markup,
     )
