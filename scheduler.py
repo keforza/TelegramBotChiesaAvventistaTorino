@@ -247,15 +247,15 @@ def setup_scheduler(
     application.job_queue.run_daily(
         send_latest_diretta,
         time=datetime.time(
-            hour=12,
-            minute=15,
+            hour=11,
+            minute=55,
             tzinfo=ROME_TIMEZONE,
         ),
-        days=(6,),
-        name="latest_diretta_thursday",
+        days=(0,),
+        name="latest_diretta_sunday",
     )
 
     logger.info(
         "📅 Invio ultima diretta programmato: "
-        "ogni giovedì alle 18:01."
-    )
+        "ogni domenica alle 11:55."
+    )   
